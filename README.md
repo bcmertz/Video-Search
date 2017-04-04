@@ -15,7 +15,7 @@ To use, must use python 3 (may need to source the correct pip modules for python
     - npm install
     - npm run webpack
     - npm start
-- in a separate terminal cd into backend/python and:
+- in a separate terminal cd into backend/python and type the following commands:
     - pip install 
     - python testServery.py
 - open localhost:3000 and use the whatever functionality you like

@@ -12,17 +12,16 @@ var models = require('../models/models.js')
 var Game = models.Game;
 var Clarifai = require('clarifai');
 
-aws.config.loadFromPath('./backend/config.json')
-var s3 = new aws.S3()
+var s3 = new aws.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
 
-var app = express();
-
-
-// var clari = new Clarifai.App(
-//   process.env.id,
-//   process.env.password
-// );
-// clari.getToken();
+var clari = new Clarifai.App(
+  process.env.id,
+  process.env.password
+);
+clari.getToken();
 
 router.get('/', function(req,res){
   res.sendFile(path.join(__dirname, '../index.html'))

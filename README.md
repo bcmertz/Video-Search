@@ -12,6 +12,7 @@ To use, must use python 3 (may need to source the correct pip modules for python
         - export AWS_SECRET_ACCESS_KEY="xxxxxxxxxxxx"  //aws s3 account secret access key
         - export id='xxxxxxxxxxxxxxxxxxxxxxx'  //clarifai id
         - export password='xxxxxxxxxxxxxxxxxxx'  //clarifai password
+    - source env.sh
     - npm install
     - npm run webpack
     - npm start

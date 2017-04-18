@@ -1,4 +1,4 @@
-# videoSearch
+# Video Search
 Extract insights from video (using Inception v3 model from Tensor Flow)
 
 A primitive version of a work in progress

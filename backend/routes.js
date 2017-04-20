@@ -9,7 +9,7 @@ var http = require('http');
 var aws = require('aws-sdk')
 var mongoose = require('mongoose')
 var models = require('../models/models.js')
-var Game = models.Game;
+var Frame = models.Frame;
 var Clarifai = require('clarifai');
 
 var s3 = new aws.S3({
@@ -27,50 +27,56 @@ router.get('/', function(req,res){
   res.sendFile(path.join(__dirname, '../index.html'))
 });
 
+var ready = false
+
 //Steps 17,18, 19
 router.get('/gameinfo', function(req, res){
-  Game.find(function(err, data){
-    if(err){
-      console.log('Error', err);
-    } else{
-      res.json(data[data.length-1]);
-    }
-  })
+  if (ready) {
+    Frame.find(function(err, data){
+      if(err){
+        console.log('Error', err);
+      } else{
+        console.log('res', res)
+        ready = false
+        res.send({success: true, data:data[data.length-1]});
+      }
+    })
+  } else {
+    res.send({success : false})
+  }
 })
 
 //Steps 9-15
 router.post('/predict', function(req, res){
   var allKeys = req.body.source;
+  console.log('classifying');
   var predictions = [];
   var idx = 0
   var counter = 0;
   allKeys.forEach(function(item){
-    clari.models.predict(Clarifai.GENERAL_MODEL, item).then(
+    var time = item.time
+    var image = item.url
+    clari.models.predict(Clarifai.GENERAL_MODEL, image).then(
         function(response) {
           counter++;
-          console.log(counter, allKeys.length);
-          predictions.push(response.outputs[0].data.concepts[0]);
+          console.log('image ', counter, ' of ', allKeys.length);
+          predictions.push({
+            classification : response.outputs[0].data.concepts[0].name,
+            time : time
+          });
           if (counter === allKeys.length){
-            var probability = 0;
-            predictions.forEach(function(item){
-              probability += item.value;
+            console.log('predictions', predictions);
+            var videodata = Frame({
+              predictions: predictions
             })
-            probability /= predictions.length;
-            var character = 'an unidentifiable character';
-            if(probability > .95){
-              character = 'Blitzcrank';
-            }
-            var gamedata = Game({
-              character: character,
-              probability: probability
-            })
-            console.log(character, probability)
-            gamedata.save(function(err){
+            videodata.save(function(err){
               if(err){
                 console.log('Error', err);
               } else{
                 console.log('Data was saved')
-                // res.send('success : true') //???????????????maybe delete????????????
+                ready = true
+                return 'done'
+                // res.send('success : true')
               }
             });
           }

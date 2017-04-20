@@ -10,11 +10,12 @@ var ReactS3Uploader = require('react-s3-uploader');
 class Main extends React.Component {
   constructor() {
     super();
-    this.getResult = this.getResult.bind(this)
     this.state = {
-      character: '',
-      probability: 0,
-      url: 'https://www.w3schools.com/html/mov_bbb.mp4'
+      query: '',
+      time : null,
+      loading : false,
+      predictions: null,
+      ready : false
     }
   }
   stream(evt) {
@@ -31,25 +32,42 @@ class Main extends React.Component {
       })
     })
   }
-  getResult(evt){
-    evt.preventDefault();
-    var self = this;
-    fetch('http://localhost:3000/gameinfo')
-    .then(function(response){
-      return response.json()
-    })
-    .then(function(responseJson){
-      self.setState({
-        character: responseJson.character,
-        probability: responseJson.probability
+  componentDidUpdate() {
+    //search in array of classified images for search term occurence
+    var time = null
+    var self = this
+    if (this.state.predictions) {
+      this.state.predictions.forEach(function(item){
+        if (item.classification.toLowerCase() === self.state.query.toLowerCase()) {
+          console.log('found search term, displaying results')
+          time = item.time
+          document.getElementById("uploadedvideo").currentTime=time
+        }
       })
-    })
-    .catch(function(err){
-      console.log(err);
-    })
+    }
   }
+  // getResult(evt){
+  //   evt.preventDefault();
+  //   var self = this;
+  //   fetch('http://localhost:3000/gameinfo')
+  //   .then(function(response){
+  //     return response.json()
+  //   })
+  //   .then(function(responseJson){
+  //     self.setState({
+  //       character: responseJson.character,
+  //       probability: responseJson.probability
+  //     })
+  //   })
+  //   .catch(function(err){
+  //     console.log(err);
+  //   })
+  // }
   onFinish(){
-    var self = this;
+    var self = this
+    self.setState({
+      loading : true
+    })
     fetch('http://localhost:3000/uploadurl',{
       method: 'post',
       headers: {
@@ -59,48 +77,43 @@ class Main extends React.Component {
         url: 'https://s3-us-west-1.amazonaws.com/code-testing/f44fd929-2585-49a2-a718-1327d1d84aff_blitzcrank.mp4'
       })
     })
-    // .then(()=> {
-    //   console.log('setting up socket')
-    //   return socket.on('results', function(data){
-    //     console.log('inside results client socket', data)
-    //     self.setState({
-    //       character: data.character,
-    //       probability: data.probability
-    //     })
-    //   })
-    // })
+    .then(()=> {
+      self.setState({url:'https://s3-us-west-1.amazonaws.com/code-testing/f44fd929-2585-49a2-a718-1327d1d84aff_blitzcrank.mp4'})
+      console.log('looking for result')
+      var check = setInterval(function(){
+        fetch('http://localhost:3000/gameinfo')
+        .then(function(response){
+          return response.json()
+        })
+        .then(function(responseJson){
+          if (responseJson.success === true) {
+            console.log('got response', responseJson.data.predictions);
+            var predictions = responseJson.data.predictions
+            clearInterval(check)
+            self.setState({loading : false, predictions: predictions, ready : true})
+          } else {
+            console.log('response not ready')
+            return
+          }
+        })
+        .catch(function(err){
+          console.log(err);
+        })
+      }, 2000)
+    })
     .catch(function(err){
       console.log(err);
     })
   }
   update(evt){
-    console.log('update this.state.url to', evt.target.value)
-    this.setState({url:evt.target.value})
+    var self = this
+    this.setState({query:evt.target.value})
   }
   render(){
-    var gameInfo = '';
-    if(this.state.character === 'Blitzcrank' && this.state.probability > 0){
-      gameInfo = 'We are ' + this.state.probability*100 +'% confident that you are playing ' + this.state.character;
-    } else if(this.state.character === 'an unidentifiable character'){
-      gameInfo = 'We are unable to confidently identify the character you are playing. Our best guess is that you are playing Blitzcrank (' + this.state.probability + '%)'
-    }
     return(
       <div>
-        <h2>Submit a stream link below:</h2>
-        <form onSubmit={this.stream.bind(this)}>
-        <label>
-        URL: <input type="text" name="name" onChange={this.update.bind(this)} value={this.state.url} />
-        </label>
-        <input type="submit" value="Submit" />
-        </form>
         <div>
-          <h1 style={{textAlign: 'center'}}>Play smarter. Carry harder.</h1>
-          <p>League of Legends is a game of skill. Hitting skillshots makes for increased damage,
-            higher winrates, and epic montages.
-            Why settle for missing skillshots?
-          </p>
-          <p>Untilt.gg uses advanced machine learning and computer vision unlock your skillshot potential.</p>
-          <h2 style = {{textAlign: 'center'}}> Upload a video to get gameplay analytics</h2>
+          <h2 style = {{textAlign: 'center'}}> Upload a video to search within it</h2>
           <div style ={{textAlign: 'center', paddingBottom: 20}}>
           </div>
           <ReactS3Uploader
@@ -110,15 +123,32 @@ class Main extends React.Component {
           signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
           uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
           contentDisposition="auto"
-          onFinish = {this.onFinish}
+          onFinish = {this.onFinish.bind(this)}
           scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
           server="http://localhost:3000" />
         </div>
+        <div style ={{paddingBottom: 5}}></div>
+        <div>{this.state.ready ?
+          <label>
+          Search Term Within Video: <input type="text" name="name" onChange={this.update.bind(this)} value={this.state.query} />
+          </label>
+          : <div></div>
+        }
+        </div>
         <div style={{textAlign: 'center'}}>
-          <form onSubmit = {this.getResult}>
-            <input type='submit' value='Get Results!'/>
-          </form>
-          <h2>{gameInfo}</h2>
+        <div>{this.state.loading ?
+            <img src="https://media.giphy.com/media/TkXCbTx9gfUJi/giphy.gif" width="160" height="120" alt="Loading gif">
+            </img>
+          : <div></div>}
+        </div>
+          <div>{
+            this.state.url ?
+              <video id="uploadedvideo" width="320" height="240" controls>
+                <source src={this.state.url} type="video/mp4"></source>
+                Your browser does not support the video tag.
+              </video>
+            : <div></div>
+          }</div>
         </div>
       </div>
     )

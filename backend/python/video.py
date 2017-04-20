@@ -73,7 +73,7 @@ def parseVideo(videoFile):
             print('~~~~~~~~sssssssssssssim~~~~~~~~~~:', s)
             print('~~~~~~~~mmmmmmmmmmmmmse~~~~~~~~~~:', m)
             #if :
-            if s>=.95:
+            if s<=.92:
                 filenameuploaded = 'pics'+str(counter)+'.jpg'
                 cv2.imwrite(filenameuploaded, image) #writes an image of type 'numpy.ndarray' from nongreyscale image
                 print ('statistically relevant difference, will save image')

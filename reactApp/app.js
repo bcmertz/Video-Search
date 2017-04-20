@@ -46,39 +46,31 @@ class Main extends React.Component {
       })
     }
   }
-  // getResult(evt){
-  //   evt.preventDefault();
-  //   var self = this;
-  //   fetch('http://localhost:3000/gameinfo')
-  //   .then(function(response){
-  //     return response.json()
-  //   })
-  //   .then(function(responseJson){
-  //     self.setState({
-  //       character: responseJson.character,
-  //       probability: responseJson.probability
-  //     })
-  //   })
-  //   .catch(function(err){
-  //     console.log(err);
-  //   })
-  // }
-  onFinish(){
+  onStart(file, next){
     var self = this
     self.setState({
       loading : true
     })
+    next(file) //boilerplate keeps the uplaod going
+  }
+  onFinish(signResult){
+    var self = this
+    var tempUrl = signResult.publicUrl.slice(12,signResult.publicUrl.length)
+    var url = 'https://s3-us-west-1.amazonaws.com/mybucket-bennettmertz/'+tempUrl
+    console.log('url', url)
     fetch('http://localhost:3000/uploadurl',{
       method: 'post',
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        url: 'https://s3-us-west-1.amazonaws.com/code-testing/f44fd929-2585-49a2-a718-1327d1d84aff_blitzcrank.mp4'
+        url: url
       })
     })
     .then(()=> {
-      self.setState({url:'https://s3-us-west-1.amazonaws.com/code-testing/f44fd929-2585-49a2-a718-1327d1d84aff_blitzcrank.mp4'})
+      self.setState({
+        url: url
+      })
       console.log('looking for result')
       var check = setInterval(function(){
         fetch('http://localhost:3000/gameinfo')
@@ -111,39 +103,48 @@ class Main extends React.Component {
   }
   render(){
     return(
-      <div>
-        <div>
-          <h2 style = {{textAlign: 'center'}}> Upload a video to search within it</h2>
+      <div style = {{flex: 1}}>
+        <div style = {{flex: 1}}>
+          <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60px'}}> Upload a video to search within it</h2>
           <div style ={{textAlign: 'center', paddingBottom: 20}}>
+            <ReactS3Uploader
+            signingUrl="/s3/sign"
+            signingUrlMethod="GET"
+            accept="video/*"
+            signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
+            uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
+            contentDisposition="auto"
+            onFinish = {this.onFinish.bind(this)}
+            // onFinish = {this.onUploadFinish.bind(this)}
+            preprocess = {this.onStart.bind(this)}
+            scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
+            server="http://localhost:3000" />
           </div>
-          <ReactS3Uploader
-          signingUrl="/s3/sign"
-          signingUrlMethod="GET"
-          accept="video/*"
-          signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
-          uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
-          contentDisposition="auto"
-          onFinish = {this.onFinish.bind(this)}
-          scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
-          server="http://localhost:3000" />
         </div>
         <div style ={{paddingBottom: 5}}></div>
         <div>{this.state.ready ?
-          <label>
-          Search Term Within Video: <input type="text" name="name" onChange={this.update.bind(this)} value={this.state.query} />
-          </label>
-          : <div></div>
-        }
+          <div>
+            <label style={{display: 'flex', justifyContent: 'center', marginTop: "30px"}}>
+            Search Term Within Your Video  <input type="text" name="name" onChange={this.update.bind(this)} value={this.state.query} />
+            </label>
+            <ul>
+              {this.state.predictions.map(function(item) {
+                return <li key={item.time}>{item.classification}</li>
+              })}
+            </ul>
+          </div>
+          : <div>
+              {this.state.loading ?
+                <img style={{justifyContent: 'center', alignItems: 'center'}} src="https://media.giphy.com/media/TkXCbTx9gfUJi/giphy.gif" width="160" height="120" alt="Loading gif">
+                </img>
+              : <div></div>}
+            </div>
+          }
         </div>
         <div style={{textAlign: 'center'}}>
-        <div>{this.state.loading ?
-            <img src="https://media.giphy.com/media/TkXCbTx9gfUJi/giphy.gif" width="160" height="120" alt="Loading gif">
-            </img>
-          : <div></div>}
-        </div>
           <div>{
             this.state.url ?
-              <video id="uploadedvideo" width="320" height="240" controls>
+              <video id="uploadedvideo" width="640" height="480" controls>
                 <source src={this.state.url} type="video/mp4"></source>
                 Your browser does not support the video tag.
               </video>

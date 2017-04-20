@@ -53,39 +53,76 @@ router.post('/predict', function(req, res){
   var predictions = [];
   var idx = 0
   var counter = 0;
-  allKeys.forEach(function(item){
+  var start = Date.now()
+  // allKeys.forEach(function(item){
+  //   var time = item.time
+  //   var image = item.url
+  //   clari.models.predict(Clarifai.GENERAL_MODEL, image).then(
+  //     function(response) {
+  //       counter++;
+  //       console.log('image ', counter, ' of ', allKeys.length);
+  //       predictions.push({
+  //         classification : response.outputs[0].data.concepts[0].name,
+  //         time : time
+  //       });
+  //       if (counter === allKeys.length){
+  //         console.log('predictions', predictions);
+  //         var videodata = Frame({
+  //           predictions: predictions
+  //         })
+  //         videodata.save(function(err){
+  //           if(err){
+  //             console.log('Error', err);
+  //           } else{
+  //             console.log('Data was saved')
+  //             ready = true
+  //             return 'done'
+  //             // res.send('success : true')
+  //           }
+  //         });
+  //       }
+  //     },
+  //     function(err) {
+  //       console.error('Error', err);
+  //     }
+  //   );
+  // })
+  var slow = setInterval(function(){
+    var item = allKeys[counter]
     var time = item.time
     var image = item.url
     clari.models.predict(Clarifai.GENERAL_MODEL, image).then(
-        function(response) {
-          counter++;
-          console.log('image ', counter, ' of ', allKeys.length);
-          predictions.push({
-            classification : response.outputs[0].data.concepts[0].name,
-            time : time
+      function(response) {
+        counter++
+        console.log('image ', counter, ' of ', allKeys.length, Date.now()-start);
+        predictions.push({
+          classification : response.outputs[0].data.concepts[0].name,
+          time : time
+        });
+        if (counter === allKeys.length){
+          clearInterval(slow)
+          console.log('predictions', predictions);
+          var videodata = Frame({
+            predictions: predictions
+          })
+          videodata.save(function(err){
+            if(err){
+              console.log('Error', err);
+            } else{
+              console.log('Data was saved')
+              ready = true
+              return 'done'
+              // res.send('success : true')
+            }
           });
-          if (counter === allKeys.length){
-            console.log('predictions', predictions);
-            var videodata = Frame({
-              predictions: predictions
-            })
-            videodata.save(function(err){
-              if(err){
-                console.log('Error', err);
-              } else{
-                console.log('Data was saved')
-                ready = true
-                return 'done'
-                // res.send('success : true')
-              }
-            });
-          }
-        },
-        function(err) {
-          console.error('Error', err);
+          res.send('successful')
         }
-      );
-  })
+      },
+      function(err) {
+        console.error('Error', err);
+      }
+    );
+  }, 110)
 })
 
 router.post('/stream', function(req,res){
@@ -114,7 +151,6 @@ router.post('/stream', function(req,res){
   });
   httpreq.write(source);
   httpreq.end();
-  console.log('here')
   res.redirect('/')
 })
 
@@ -146,7 +182,6 @@ router.post('/uploadurl', function(req, res){
   });
   httpreq.write(source);
   httpreq.end();
-  console.log('here1')
   res.redirect('/')
 })
 

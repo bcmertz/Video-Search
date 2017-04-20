@@ -44,41 +44,42 @@ router.post('/predict', function(req, res){
   var predictions = [];
   var idx = 0
   var counter = 0;
-  // allKeys.forEach(function(item){
-  //   clari.models.predict(Clarifai.GENERAL_MODEL, item).then(
-  //       function(response) {
-  //         counter++;
-  //         console.log(counter, allKeys.length);
-  //         predictions.push(response.outputs[0].data.concepts[0]);
-  //         if (counter === allKeys.length){
-  //           var probability = 0;
-  //           predictions.forEach(function(item){
-  //             probability += item.value;
-  //           })
-  //           probability /= predictions.length;
-  //           var character = 'an unidentifiable character';
-  //           if(probability > .95){
-  //             character = 'Blitzcrank';
-  //           }
-  //           var gamedata = Game({
-  //             character: character,
-  //             probability: probability
-  //           })
-  //           gamedata.save(function(err){
-  //             if(err){
-  //               console.log('Error', err);
-  //             } else{
-  //               console.log('Data was saved')
-  //               res.send('success : true') //???????????????maybe delete????????????
-  //             }
-  //           });
-  //         }
-  //       },
-  //       function(err) {
-  //         console.error('Error', err);
-  //       }
-  //     );
-  // })
+  allKeys.forEach(function(item){
+    clari.models.predict(Clarifai.GENERAL_MODEL, item).then(
+        function(response) {
+          counter++;
+          console.log(counter, allKeys.length);
+          predictions.push(response.outputs[0].data.concepts[0]);
+          if (counter === allKeys.length){
+            var probability = 0;
+            predictions.forEach(function(item){
+              probability += item.value;
+            })
+            probability /= predictions.length;
+            var character = 'an unidentifiable character';
+            if(probability > .95){
+              character = 'Blitzcrank';
+            }
+            var gamedata = Game({
+              character: character,
+              probability: probability
+            })
+            console.log(character, probability)
+            gamedata.save(function(err){
+              if(err){
+                console.log('Error', err);
+              } else{
+                console.log('Data was saved')
+                // res.send('success : true') //???????????????maybe delete????????????
+              }
+            });
+          }
+        },
+        function(err) {
+          console.error('Error', err);
+        }
+      );
+  })
 })
 
 router.post('/stream', function(req,res){
@@ -144,11 +145,11 @@ router.post('/uploadurl', function(req, res){
 })
 
 router.use('/s3', require('react-s3-uploader/s3router')({
-    bucket: "videosearch-assets",
-    region: 'us-west-1', //optional
-    signatureVersion: 'v4', //optional (use for some amazon regions: frankfurt and others)
+    bucket: "mybucket-bennettmertz",
+    // region: 'us-west-1', //optional
+    // signatureVersion: 'v4', //optional (use for some amazon regions: frankfurt and others)
     headers: {'Access-Control-Allow-Origin': '*'}, // optional
-    ACL: 'private'
+    ACL: 'public-read'
   })
 );
 

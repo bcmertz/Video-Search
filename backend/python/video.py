@@ -15,7 +15,7 @@ import time
 from skimage.measure import structural_similarity as ssim
 import cv2
 import boto3
-import classify_image
+# import classify_image
 
 #import s3 configuration credentials
 exec(compile(open("./configuration.py").read(), "./configuration.py", 'exec'))
@@ -29,8 +29,6 @@ s3 = boto3.resource(
 
 #array to store urls
 arr1 = []
-
-
 
 #mean squared error calculation
 def mse(imageA, imageB):
@@ -108,4 +106,4 @@ def awsSave(arr):
         )
         url = 'https://s3-us-west-1.amazonaws.com/'+str(bucket)+'/'+str(val)
         arr1.append(url)
-        classify_image();
+        # classify_image();

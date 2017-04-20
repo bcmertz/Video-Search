@@ -16,7 +16,7 @@ from skimage.measure import structural_similarity as ssim
 import cv2
 import boto3
 from video import parseVideo, awsSave, arr1
-from stream import parseStream, awsSave, sendNode
+# from stream import parseStream, awsSave, sendNode
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -41,12 +41,13 @@ class Handler(BaseHTTPRequestHandler):
             print("videoFile:", videoFile)
             parseVideo(videoFile)
             print ("Video Parsing Complete, sending data to node server")
-            #POST BACK TO NODE SERVER THE LINKS FROM AWS
-            payload = {
-            'source': arr1
-            }
-            headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-            res = requests.post('http://localhost:3000/predict', headers=headers, data=json.dumps(payload))
+
+        #POST BACK TO NODE SERVER THE LINKS FROM AWS
+        payload = {
+        'source': arr1
+        }
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        res = requests.post('http://localhost:3000/predict', headers=headers, data=json.dumps(payload))
 
         #PARSING OF VIDEO
         return

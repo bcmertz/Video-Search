@@ -9,8 +9,10 @@ var http = require('http');
 var aws = require('aws-sdk')
 var mongoose = require('mongoose')
 var models = require('../models/models.js')
-var Game = models.Game;
+var Frame = models.Frame;
 var Clarifai = require('clarifai');
+var youtubedl = require('youtube-dl')
+var fs = require('fs')
 
 var s3 = new aws.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -24,100 +26,105 @@ var clari = new Clarifai.App(
 clari.getToken();
 
 router.get('/', function(req,res){
-  res.sendFile(path.join(__dirname, '../index.html'))
-});
+  res.sendFile(path.join(__dirname, '../index.html'))  //for the mainpage send index.html which has out bundled app as a script inside
+});  //get main page
 
-//Steps 17,18, 19
-router.get('/gameinfo', function(req, res){
-  Game.find(function(err, data){
-    if(err){
-      console.log('Error', err);
-    } else{
-      res.json(data[data.length-1]);
-    }
+var ready = false  //global variable dictating if the results are ready or not yet, doens't scale to multiple users
+
+router.get('/results', function(req, res){  //send back results if they're ready ,TODO make this server accessible to multiple users
+  if (ready) {
+    Frame.find(function(err, data){
+      if(err){
+        console.log('Error', err);
+      } else{
+        ready = false
+        res.send({success: true, data:data[data.length-1]});    //send most recent results
+      }
+    })
+  } else {
+    res.send({success : false})  //results not ready keep asking frontend
+  }
+})
+
+router.post('/predict', function(req, res){  //the python server sends the image urls and their associated times here to be classified and have results saved
+  var allKeys = req.body.source;  //
+  var url = req.body.url;  //aws s3 video url
+  var predictions = [];  //contains classifications and associated time
+  var counter = 0;  //allows us to keep track of times and resulting classifications
+  var predictionArray = []  //contains urls to send to clarifai
+  allKeys.forEach(function(item){  //just send urls to clarifai
+    var time = item.time
+    var image = item.url
+    predictionArray.push({"url": image})
   })
+  if(predictionArray.length>120) {    //TODO this section is hit if there are a lot of images
+
+  } else {
+    clari.models.predict(Clarifai.GENERAL_MODEL, predictionArray).then(
+      function(response) {
+        console.log('Number of outputs', response.outputs.length)
+        response.outputs.forEach(function(item){
+          predictions.push({classification : item.data.concepts[0].name, time: allKeys[counter].time})
+          console.log('Classification', item.data.concepts[0].name, 'Time', allKeys[counter].time);
+          counter++
+        })
+        var videodata = Frame({
+          predictions: predictions,
+          url: url
+        })
+        videodata.save(function(err){
+          if(err){
+            console.log('Error', err);
+          } else{
+            console.log('Data was saved')
+            predictionsArray = []
+            ready = true
+            return 'done'
+            // res.send('success : true')
+          }
+        });
+      },
+      function(err) {
+        console.error('Error', err);
+      }
+    );
+  }
 })
 
-//Steps 9-15
-router.post('/predict', function(req, res){
-  var allKeys = req.body.source;
-  var predictions = [];
-  var idx = 0
-  var counter = 0;
-  // allKeys.forEach(function(item){
-  //   clari.models.predict(Clarifai.GENERAL_MODEL, item).then(
-  //       function(response) {
-  //         counter++;
-  //         console.log(counter, allKeys.length);
-  //         predictions.push(response.outputs[0].data.concepts[0]);
-  //         if (counter === allKeys.length){
-  //           var probability = 0;
-  //           predictions.forEach(function(item){
-  //             probability += item.value;
-  //           })
-  //           probability /= predictions.length;
-  //           var character = 'an unidentifiable character';
-  //           if(probability > .95){
-  //             character = 'Blitzcrank';
-  //           }
-  //           var gamedata = Game({
-  //             character: character,
-  //             probability: probability
-  //           })
-  //           gamedata.save(function(err){
-  //             if(err){
-  //               console.log('Error', err);
-  //             } else{
-  //               console.log('Data was saved')
-  //               res.send('success : true') //???????????????maybe delete????????????
-  //             }
-  //           });
-  //         }
-  //       },
-  //       function(err) {
-  //         console.error('Error', err);
-  //       }
-  //     );
-  // })
-})
+// router.post('/stream', function(req,res){  //in case someone gives a stream url
+//   var source = 's'+req.body.url
+//   console.log('source', source)
+//   var options = {
+//     // host: 'whatever the heroku is called',
+//     port: 8080,
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/x-www-form-urlencoded',
+//       'Content-Length': Buffer.byteLength(source)
+//     }
+//   };
+//   var httpreq = http.request(options, function (response) {
+//     response.setEncoding('utf8');
+//     response.on('data', function (chunk) {
+//       console.log("body: " + chunk);
+//     }).on('error', function(err) {
+//       res.send('error');
+//     }).on('end', function() {
+//       res.send('ok');
+//     })
+//   }).on('error', function(e){
+//     console.log(e)
+//   });
+//   httpreq.write(source);
+//   httpreq.end();
+//   res.redirect('/')
+// })    //not currently in sue
 
-router.post('/stream', function(req,res){
-  var source = 's'+req.body.url
-  console.log('source', source)
-  var options = {
-    // host: 'whatever the fuck heroku is called',
-    port: 8080,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(source)
-    }
-  };
-  var httpreq = http.request(options, function (response) {
-    response.setEncoding('utf8');
-    response.on('data', function (chunk) {
-      console.log("body: " + chunk);
-    }).on('error', function(err) {
-      res.send('error');
-    }).on('end', function() {
-      res.send('ok');
-    })
-  }).on('error', function(e){
-    console.log(e)
-  });
-  httpreq.write(source);
-  httpreq.end();
-  console.log('here')
-  res.redirect('/')
-})
-
-router.post('/uploadurl', function(req, res){
-  // var source = req.body.url //this doesn't work yet
-  // var source = {"type": "uploadedvideo", "data": req.body.url}
-  var source = 'f'+req.body.url
+router.post('/uploadurl', function(req, res){   //hit after frontend aws upload occurs for video uplad
+  var source = 'f'+req.body.url  //so python knows its file not a stream
   console.log('source',source)
-  var options = {
-    // host: 'whatever the fuck heroku is called',
+  var options = {   //options to post to python
+    // host: 'whatever the heroku is called',
     port: 8080,
     method: 'POST',
     headers: {
@@ -125,7 +132,7 @@ router.post('/uploadurl', function(req, res){
       'Content-Length': Buffer.byteLength(source)
     }
   };
-  var httpreq = http.request(options, function (response) {
+  var httpreq = http.request(options, function (response) {   //manual ass http post to python
     response.setEncoding('utf8');
     response.on('data', function (chunk) {
       console.log("body: " + chunk);
@@ -139,17 +146,80 @@ router.post('/uploadurl', function(req, res){
   });
   httpreq.write(source);
   httpreq.end();
-  console.log('here1')
   res.redirect('/')
 })
 
-router.use('/s3', require('react-s3-uploader/s3router')({
-    bucket: "videosearch-assets",
-    region: 'us-west-1', //optional
-    signatureVersion: 'v4', //optional (use for some amazon regions: frankfurt and others)
+router.post('/youtube', function(req, res){   //route for youtube link submissions, we download video, upload to aws, then send that link to python
+  //TODO unique file names on aws, get around buffer size limits
+  console.log('in youtubedl, url:', req.body.url);
+  var postToPython = function (url) {  //post request to python containing url
+    var source = 'f'+url;
+    console.log('source',source);
+    var options = {
+      // host: 'whatever the heroku is called',
+      port: 8080,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(source)
+      }
+    };
+    var httpreq = http.request(options, function (response) {
+      response.setEncoding('utf8');
+      response.on('data', function (chunk) {
+        console.log("body: " + chunk);
+      }).on('error', function(err) {
+        res.send('error');
+      }).on('end', function() {
+        res.send('ok');
+      })
+    }).on('error', function(e){
+      console.log(e)
+    });
+    httpreq.write(source);
+    httpreq.end();
+    res.redirect('/');
+  };
+  var uploadVideo = function () {  //upload video to aws by reading the downloaded file (youtubedl) and turning its data into a buffer
+    fs.readFile('myvideo.mp4', function(err, data){   //read the video file
+      if (err) {
+        throw err
+      }
+      var base64data = new Buffer(data, 'binary')   //turn the reading file into a buffer
+      var params = {    //parameters to upload to aws
+        Bucket: 'mybucket-bennettmertz', Key: 'myvideo.mp4', Body: base64data, ACL:"public-read-write"
+      };
+      s3.putObject(params, function(resp){    //put the object in the mybucket-bennettmertz bucket with public access
+        var url = 'https://s3-us-west-1.amazonaws.com/'+'mybucket-bennettmertz'+'/'+'myvideo.mp4'
+        postToPython(url)   //post the aws url to python so it can parse it apart
+      })
+    })
+  }
+
+  var video = youtubedl(req.body.url,   //boilerplate to download the specified url
+    ['--format=18'],
+    { cwd: __dirname }
+  );
+  // Will be called when the download starts.
+  video.on('info', function(info) {  //youtubedl
+    console.log('Download started');
+    console.log('filename: ' + info.__filename);
+    console.log('size: ' + info.size);
+  });
+  video.pipe(fs.createWriteStream('myvideo.mp4'));  //youtubedl
+  video.on('end', function() {  //youtubedl
+    console.log('finished downloading, uploading to aws-s3');
+    uploadVideo()
+  });
+})
+
+router.use('/s3', require('react-s3-uploader/s3router')({  //backend route needed for react-s3-uploader, lets us get the signed url back
+    bucket: "mybucket-bennettmertz",    //default bucket
+    // region: 'us-west-1', //optional
+    // signatureVersion: 'v4', //optional (use for some amazon regions: frankfurt and others)
     headers: {'Access-Control-Allow-Origin': '*'}, // optional
-    ACL: 'private'
+    ACL: 'public-read'
   })
 );
 
-module.exports = router;
+module.exports = router;  //exports to server.js

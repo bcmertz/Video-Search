@@ -1,5 +1,3 @@
-##use this file to parse apart an uploaded video file of definite length
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import socketserver
 import requests
@@ -15,7 +13,7 @@ import time
 from skimage.measure import structural_similarity as ssim
 import cv2
 import boto3
-import classify_image
+# import classify_image
 
 #import s3 configuration credentials
 exec(compile(open("./configuration.py").read(), "./configuration.py", 'exec'))
@@ -29,8 +27,6 @@ s3 = boto3.resource(
 
 #array to store urls
 arr1 = []
-
-
 
 #mean squared error calculation
 def mse(imageA, imageB):
@@ -52,6 +48,7 @@ def parseVideo(videoFile):
     success,image = vidcap.read()
     seconds = 2 #check every so many seconds
     counter = 1
+    time = 0
     fps = int(round(vidcap.get(cv2.CAP_PROP_FPS))) # Gets the frames per second
     multiplier = fps * seconds
     while success:
@@ -61,7 +58,8 @@ def parseVideo(videoFile):
         #image is a 2d numpy array 'numpy.ndarray', bgr I believe
         #we can perform transformations on this array
         if frameId % multiplier == 0:
-            print ('once a second similarity measurement:')
+            print ('once everyother second similarity measurement:')
+            time+=seconds
             #greyscale image
             newimage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             #100 calculations takes: ssim - 4.37s, mse -  0.35s
@@ -73,12 +71,15 @@ def parseVideo(videoFile):
             print('~~~~~~~~sssssssssssssim~~~~~~~~~~:', s)
             print('~~~~~~~~mmmmmmmmmmmmmse~~~~~~~~~~:', m)
             #if :
-            if s>=.95:
+            if s<=.92:
                 filenameuploaded = 'pics'+str(counter)+'.jpg'
                 cv2.imwrite(filenameuploaded, image) #writes an image of type 'numpy.ndarray' from nongreyscale image
                 print ('statistically relevant difference, will save image')
                 counter+=1
-                arr.append(filenameuploaded)
+                arr.append({
+                    'filenameuploaded':filenameuploaded,
+                    'time': time
+                })
                 #append name of image to array and get ready to process the next frame
     vidcap.release()
     print('about to save the following pics:', arr)
@@ -92,9 +93,9 @@ def awsSave(arr):
     bucket = 'mybucket-bennettmertz'
     counter = 0
     for val in arr:
-        print('save attempt:', val)
+        print('save attempt:', val['filenameuploaded'])
         counter += 1
-        data = open(str(val), 'rb')
+        data = open(str(val['filenameuploaded']), 'rb')
         #still need to implement expiration
         # now = datetime.datetime.now()
         # expires = now + datetime.timedelta(minutes=1)
@@ -106,6 +107,6 @@ def awsSave(arr):
             Body=data,
             ACL='public-read'
         )
-        url = 'https://s3-us-west-1.amazonaws.com/'+str(bucket)+'/'+str(val)
-        arr1.append(url)
-        classify_image();
+        url = 'https://s3-us-west-1.amazonaws.com/'+str(bucket)+'/'+str(val['filenameuploaded'])
+        arr1.append({"url": url, "time": val['time']})
+        # classify_image();

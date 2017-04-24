@@ -1,5 +1,3 @@
-##use this file to parse apart an uploaded video file of definite length
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import socketserver
 import requests

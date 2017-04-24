@@ -1,5 +1,4 @@
 #most current version of our server that can handle streams and uploaded videos
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import socketserver
 import requests
@@ -22,8 +21,8 @@ from video import parseVideo, awsSave, arr1
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         print ("in post method")
+        #boilerplate to get the data from the node post to here
         cgitb.enable()
-
         content_len = int(self.headers.get('Content-Length'))
         post_body = self.rfile.read(content_len)
         videoFile = post_body.decode("utf-8")
@@ -35,11 +34,11 @@ class Handler(BaseHTTPRequestHandler):
             videoFile = videoFile[1:len(videoFile)]
             parseStream(videoFile)
 
-        if fileType == 'f':
+        if fileType == 'f':  #if the type is file
             print('upload type : file')
-            videoFile = videoFile[1:len(videoFile)]
+            videoFile = videoFile[1:len(videoFile)]  #the f was appended to the beginning of the string here we get rid of that
             print("videoFile:", videoFile)
-            parseVideo(videoFile)
+            parseVideo(videoFile)  #go frame by frame and save relevant frames
             print ("Video Parsing Complete, sending data to node server")
 
         #POST BACK TO NODE SERVER THE LINKS FROM AWS

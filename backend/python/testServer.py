@@ -44,7 +44,8 @@ class Handler(BaseHTTPRequestHandler):
 
         #POST BACK TO NODE SERVER THE LINKS FROM AWS
         payload = {
-        'source': arr1
+        'source': arr1,
+        'url': videoFile
         }
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         res = requests.post('http://localhost:3000/predict', headers=headers, data=json.dumps(payload))

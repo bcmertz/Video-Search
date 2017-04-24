@@ -3,7 +3,8 @@ var connect = process.env.MONGODB_URI
 mongoose.connect(connect);
 
 var Frame = new mongoose.Schema({
-  predictions: Array
+  predictions: Array,
+  url : String
 });
 
 

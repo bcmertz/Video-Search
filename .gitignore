@@ -12,3 +12,4 @@ server.py.bak
 __pycache__
 build/*
 video.pyc
+*.mp4

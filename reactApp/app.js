@@ -1,6 +1,7 @@
 import React, {Component} from 'react'
 import css from '../styles.css'
 import ReactDOM from 'react-dom'
+import Button from 'react-bootstrap/lib/Button'
 var ReactS3Uploader = require('react-s3-uploader');
 
 class Main extends React.Component {
@@ -16,7 +17,8 @@ class Main extends React.Component {
       index: 0,    //index currently used from predictions tag array
       url: null,  //set to aws mp4 url to render video
       youtubeUrl: null,  //youtube url in search box
-      link: null  //youtubeUrl on submission, should eliminate youtubeUrl by using ref in refactoring
+      link: null,  //youtubeUrl on submission, should eliminate youtubeUrl by using ref in refactoring
+      hide: false  //hide entry boxes on url submission
     }
   }
   handleKeyPress(event){ //listens for enter press to iterate through different time occurences of the same classification time
@@ -51,10 +53,13 @@ class Main extends React.Component {
   handleSubmit(evt){  //handles submission of url form
     evt.preventDefault();
     var url = this.state.youtubeUrl
-    this.setState({   //sets the link to the text input youtubeUrl (can be replaced without state and use ref instead), this triggers handleYoutube in componentDidUpdate
-      loading: true,
-      link: url
-    })
+    //TODO if(link is good) { //clinet side link authentication
+      this.setState({   //sets the link to the text input youtubeUrl (can be replaced without state and use ref instead), this triggers handleYoutube in componentDidUpdate
+        loading: true,
+        link: url,
+        hide: true
+      })
+    // } else {}
   }
   componentDidUpdate() {
     var time = null
@@ -76,7 +81,8 @@ class Main extends React.Component {
   onStart(file, next){  //at the start of the upload of a video from the client to aws we set loading to true so there is visual feedback
     var self = this
     self.setState({
-      loading : true
+      loading : true,
+      hide : true
     })
     next(file) //boilerplate keeps the uplaod going
   }
@@ -92,6 +98,7 @@ class Main extends React.Component {
       })
     })
     .then(()=> {
+      var timer = Date.now()  //assumes error and stops chekcing after a minute
       console.log('looking for result')
       var check = setInterval(function(){
         fetch('http://localhost:3000/results')
@@ -99,6 +106,8 @@ class Main extends React.Component {
           return response.json()
         })
         .then(function(responseJson){
+          console.log('checked');
+          var timenow = Date.now() - timer
           if (responseJson.success === true) {  //if the results are ready
             console.log('got response', responseJson.data);
             var predictionsArray = responseJson.data.predictions  //all predictions and times
@@ -117,6 +126,13 @@ class Main extends React.Component {
             })
             self.setState({loading : false, predictions: predictionsObject, ready : true, list: list, url: url})  //loading gif disappears, list and predictions array help us search and render tags, ready shows search bar, url shows video on aws
           } else {    //results not ready
+            if (responseJson.error) {
+              alert('Invalid URL, reload and try again')  //TODO make more elegant
+              clearInterval(check)
+            } else if (timenow >= 120000) {
+              alert('Process failed, reload and try again')  //TODO make more elegant
+              clearInterval(check)
+            }
             return
           }
         })
@@ -235,67 +251,96 @@ class Main extends React.Component {
     })
   }
   render(){
+    var predictions = this.state.predictions
     var counter = 0
     return(
-      <div style = {{flex: 1, justifyContent: 'center'}}>
-        <div style = {{flex: 1}}>
-          <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60px'}}> Submit a video link to search within it</h2>
-          <form onSubmit={this.handleSubmit.bind(this)}>
-            <input ref="youtube" type="text" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ" onChange={this.updateYoutubeUrl.bind(this)}>
-            </input>
-            <input type="submit"></input>
-          </form>
-          <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60px'}}> Upload a video to search within it</h2>
-          <div style ={{textAlign: 'center', paddingBottom: 20}}>
-            <ReactS3Uploader
-            signingUrl="/s3/sign"
-            signingUrlMethod="GET"
-            accept="video/*"
-            signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
-            uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
-            contentDisposition="auto"
-            onFinish = {this.onFinish.bind(this)}
-            // onFinish = {this.onUploadFinish.bind(this)}
-            preprocess = {this.onStart.bind(this)}
-            scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
-            server="http://localhost:3000" />
-          </div>
-        </div>
-        <div style ={{paddingBottom: 5}}></div>
-        <div>{this.state.ready ?
-          <div>
-            <label style={{display: 'flex', justifyContent: 'center', marginTop: "30px"}}>
-            Search Term Within Your Video  <input type="text" name="name" onKeyPress={this.handleKeyPress.bind(this)} onChange={this.updateQuery.bind(this)} value={this.state.query} />
-            </label>
-            <ul>
-              {this.state.list.map(function(item) {
-                counter++
-                return <li key={counter}>{item}</li>
-              })}
-            </ul>
-          </div>
-          : <div style={{justifyContent: 'center', alignItems: 'center'}}>
-              {this.state.loading ?
-                <img style={{justifyContent: 'center', alignItems: 'center'}} src="https://media.giphy.com/media/TkXCbTx9gfUJi/giphy.gif" width="160" height="120" alt="Loading gif">
-                </img>
-              : <div></div>}
+      <div style={{display: 'flex', width: '100%', flexDirection: 'row'}}>
+        <div style = {{flex: 1, width: '100%'}}>
+          {this.state.hide? <div />: <div style = {{flex: 1}}>
+            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}> Submit a video link to search within it</h2>
+            <form onSubmit={this.handleSubmit.bind(this)}>
+              <input ref="youtube" style={styles.input} type="text" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ" onChange={this.updateYoutubeUrl.bind(this)}>
+              </input>
+              <input type="submit"></input>
+            </form>
+            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}>Or</h2>
+            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}> Upload a video to search within it</h2>
+            <div style ={{textAlign: 'center', paddingBottom: 20}}>
+              <ReactS3Uploader
+              signingUrl="/s3/sign"
+              signingUrlMethod="GET"
+              accept="video/*"
+              signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
+              uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
+              contentDisposition="auto"
+              onFinish = {this.onFinish.bind(this)}
+              // onFinish = {this.onUploadFinish.bind(this)}
+              preprocess = {this.onStart.bind(this)}
+              scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
+              server="http://localhost:3000" />
             </div>
-          }
+          </div>}
+          <div style ={{paddingBottom: 5}}></div>
+          <div>{this.state.ready ?
+            <div>
+              <label style={{display: 'flex', justifyContent: 'center', marginTop: "30"}}>
+              Search Term Within Your Video  <input type="text" name="name" onKeyPress={this.handleKeyPress.bind(this)} onChange={this.updateQuery.bind(this)} value={this.state.query} />
+              </label>
+            </div>
+            : <div style={{justifyContent: 'center', alignItems: 'center'}}>
+                {this.state.loading ?
+                  <div>
+                    <div style={{justifyContent: 'center', alignItems: 'center', marginTop: '60'}}>Analyzing your video</div>
+                    <img style={{justifyContent: 'center', alignItems: 'center'}} src="https://s-media-cache-ak0.pinimg.com/originals/90/80/60/9080607321ab98fa3e70dd24b2513a20--mark-bennett-ui-animation.jpg" width="240" height="180" alt="Loading gif">
+                    </img>
+                  </div>
+                : <div></div>}
+              </div>
+            }
+          </div>
+          <div style={{textAlign: 'center'}}>
+            <div>{
+              this.state.url ?
+                <video id="uploadedvideo" width="640" height="480" controls>
+                  <source src={this.state.url} type="video/mp4"></source>
+                  Your browser does not support the video tag.
+                </video>
+              : <div></div>
+            }</div>
+            <div>{
+              this.state.ready ?
+              <div>
+              <p></p>
+              <p></p>
+              <button onClick={()=>{location.reload()}}>Search within a new video!</button>
+              </div>
+              : <div></div>
+            }</div>
+          </div>
         </div>
-        <div style={{textAlign: 'center'}}>
-          <div>{
-            this.state.url ?
-              <video id="uploadedvideo" width="640" height="480" controls>
-                <source src={this.state.url} type="video/mp4"></source>
-                Your browser does not support the video tag.
-              </video>
-            : <div></div>
-          }</div>
-        </div>
+        {this.state.ready?
+          <div style={{flex:1, width: '100%', marginTop: '100', marginLeft: '20'}}>
+          <h2>Possible search terms:</h2>
+          <h5>Press Enter for multiple occurences of one tag</h5>
+          <ul>
+            {this.state.list.map(function(item) {
+              counter++
+              return <li key={counter}>{item} ({predictions[item].length})</li>
+            })}
+          </ul>
+          </div> :
+          <div></div>
+        }
       </div>
     )
   }
 }
+
+let styles = {
+  input: {
+    width: '420',
+  }
+};
 
 ReactDOM.render(
   <Main />, document.getElementById('root')

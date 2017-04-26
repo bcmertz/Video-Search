@@ -30,6 +30,7 @@ router.get('/', function(req,res){
 });  //get main page
 
 var ready = false  //global variable dictating if the results are ready or not yet, doens't scale to multiple users
+var error = false  //handle youtubedl error
 
 router.get('/results', function(req, res){  //send back results if they're ready ,TODO make this server accessible to multiple users
   if (ready) {
@@ -41,7 +42,11 @@ router.get('/results', function(req, res){  //send back results if they're ready
         res.send({success: true, data:data[data.length-1]});    //send most recent results
       }
     })
-  } else {
+  } else if (error) {
+    error = false
+    res.send({success : false, error: true})
+  }
+  else {
     res.send({success : false})  //results not ready keep asking frontend
   }
 })
@@ -58,14 +63,79 @@ router.post('/predict', function(req, res){  //the python server sends the image
     predictionArray.push({"url": image})
   })
   if(predictionArray.length>120) {    //TODO this section is hit if there are a lot of images
-
+    var superPredictionArray = []
+    for(var i = 0; i<predictionArray.length/120; i++){
+      superPredictionArray.push([]);
+      var j = 0;
+      while(j<120){
+        if(predictionArray[i*120+j]){
+          superPredictionArray[superPredictionArray.length-1].push(predictionArray[i*120+j])
+          j++
+        } else {
+          j=121
+        }
+      }
+    }
+    for(var i = 0; i<superPredictionArray.length; i++){
+      console.log('superPredictionArray[i].length', superPredictionArray[i].length)
+      clari.models.predict(Clarifai.GENERAL_MODEL, superPredictionArray[i]).then(
+        function(response) {
+          console.log('Number of outputs', response.outputs.length)
+          response.outputs.forEach(function(item){
+            predictions.push({classification : item.data.concepts[0].name, time: allKeys[counter].time})
+            console.log('Classification', item.data.concepts[0].name, 'Time', allKeys[counter].time);
+            counter++
+          })
+        },
+        function(err) {
+          console.error('Error', err);
+          error = true
+          res.send('failed')
+        }
+      );
+    };
+    var timer = Date.now()
+    var results = setInterval(function(){
+      if(predictions.length === predictionArray.length) {
+        clearInterval(results);
+        var videodata = Frame({
+          predictions: predictions,
+          url: url
+        })
+        videodata.save(function(err){
+          if(err){
+            predictionArray = []
+            predictions = []
+            error = true
+            console.log('Error', err);
+          } else{
+            console.log('Data was saved')
+            predictionArray = []
+            predictions = []
+            ready = true
+            // return 'done'
+            res.send('success : true')
+          }
+        });
+      } else {
+        if(Date.now()-timer > 30000) {
+          console.log('clarifai error / timeout');
+          clearInterval(results)
+          predictionArray = []
+          predictions = []
+          error = true
+        } else {
+          console.log('not done yet, waiting for Clarifai');
+        }
+      }
+    }, 1000)
   } else {
+    console.log('predictionArray', predictionArray);
     clari.models.predict(Clarifai.GENERAL_MODEL, predictionArray).then(
       function(response) {
         console.log('Number of outputs', response.outputs.length)
         response.outputs.forEach(function(item){
           predictions.push({classification : item.data.concepts[0].name, time: allKeys[counter].time})
-          console.log('Classification', item.data.concepts[0].name, 'Time', allKeys[counter].time);
           counter++
         })
         var videodata = Frame({
@@ -74,18 +144,26 @@ router.post('/predict', function(req, res){  //the python server sends the image
         })
         videodata.save(function(err){
           if(err){
+            predictionArray = []
+            predictions = []
+            error = true
             console.log('Error', err);
           } else{
             console.log('Data was saved')
-            predictionsArray = []
+            predictionArray = []
+            predictions = []
             ready = true
-            return 'done'
-            // res.send('success : true')
+            // return 'done'
+            res.send('success : true')
           }
         });
       },
       function(err) {
         console.error('Error', err);
+        predictionArray = []
+        predictions = []
+        error = true
+        res.send('failed')
       }
     );
   }
@@ -137,11 +215,13 @@ router.post('/uploadurl', function(req, res){   //hit after frontend aws upload 
     response.on('data', function (chunk) {
       console.log("body: " + chunk);
     }).on('error', function(err) {
+      error = true
       res.send('error');
     }).on('end', function() {
       res.send('ok');
     })
   }).on('error', function(e){
+    error = true
     console.log(e)
   });
   httpreq.write(source);
@@ -169,6 +249,7 @@ router.post('/youtube', function(req, res){   //route for youtube link submissio
       response.on('data', function (chunk) {
         console.log("body: " + chunk);
       }).on('error', function(err) {
+        error = true
         res.send('error');
       }).on('end', function() {
         res.send('ok');
@@ -178,12 +259,15 @@ router.post('/youtube', function(req, res){   //route for youtube link submissio
     });
     httpreq.write(source);
     httpreq.end();
-    res.redirect('/');
+    console.log('~~~~~~~~~~~~~~~~here~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+    res.send('done')
   };
   var uploadVideo = function () {  //upload video to aws by reading the downloaded file (youtubedl) and turning its data into a buffer
+    console.log('uploading video');
     fs.readFile('myvideo.mp4', function(err, data){   //read the video file
       if (err) {
-        throw err
+        error = true
+        res.send('error')
       }
       var base64data = new Buffer(data, 'binary')   //turn the reading file into a buffer
       var params = {    //parameters to upload to aws
@@ -203,7 +287,7 @@ router.post('/youtube', function(req, res){   //route for youtube link submissio
   // Will be called when the download starts.
   video.on('info', function(info) {  //youtubedl
     console.log('Download started');
-    console.log('filename: ' + info.__filename);
+    console.log('filename: ' + info._filename);
     console.log('size: ' + info.size);
   });
   video.pipe(fs.createWriteStream('myvideo.mp4'));  //youtubedl
@@ -211,6 +295,11 @@ router.post('/youtube', function(req, res){   //route for youtube link submissio
     console.log('finished downloading, uploading to aws-s3');
     uploadVideo()
   });
+  video.on('error', function(){
+    console.log('error');
+    error = true
+    res.send('err')
+  })
 })
 
 router.use('/s3', require('react-s3-uploader/s3router')({  //backend route needed for react-s3-uploader, lets us get the signed url back

@@ -48,8 +48,8 @@ class Handler(BaseHTTPRequestHandler):
         }
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         res = requests.post('http://localhost:3000/predict', headers=headers, data=json.dumps(payload))
-
-        #PARSING OF VIDEO
+        del arr1[0:len(arr1)]
+        print('Cleared data, ready to go again')
         return
 
 def run(server_class=HTTPServer, handler_class=Handler, port=8080):

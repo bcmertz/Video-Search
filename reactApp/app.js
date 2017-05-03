@@ -43,15 +43,16 @@ class Main extends React.Component {
     }
   }
   updateQuery(evt){   //onChange in the search box causes this to update the state of the query term
-    var self = this
+    evt.preventDefault();
     this.setState({query:evt.target.value, index:0})  //need to set index to 0 so if the new query isn't a classification the app doesn't break
   }
   updateYoutubeUrl(evt){   //onChange in the url box updates the state of youtubeUrl to the new string entered
-    var self = this
+    evt.preventDefault();
     this.setState({youtubeUrl:evt.target.value})
   }
   handleSubmit(evt){  //handles submission of url form
     evt.preventDefault();
+    var self = this;
     var url = this.state.youtubeUrl
     //TODO if(link is good) { //clinet side link authentication
       this.setState({   //sets the link to the text input youtubeUrl (can be replaced without state and use ref instead), this triggers handleYoutube in componentDidUpdate
@@ -60,6 +61,22 @@ class Main extends React.Component {
         hide: true
       })
     // } else {}
+  }
+  resetPage(evt){
+    evt.preventDefault();
+    this.setState({
+      query: '',  //query in query box
+      time : null,  //time rendered in video
+      loading : false,  //uploading video y/n
+      predictions: null, //object containing tags:[times, times]
+      ready : false,  //have tags y/n
+      list : null,  //array containing unique prediction tags
+      index: 0,    //index currently used from predictions tag array
+      url: null,  //set to aws mp4 url to render video
+      youtubeUrl: null,  //youtube url in search box
+      link: null,  //youtubeUrl on submission, should eliminate youtubeUrl by using ref in refactoring
+      hide: false
+    })
   }
   componentDidUpdate() {
     var time = null
@@ -79,7 +96,7 @@ class Main extends React.Component {
     }
   }
   onStart(file, next){  //at the start of the upload of a video from the client to aws we set loading to true so there is visual feedback
-    var self = this
+    var self = this;
     self.setState({
       loading : true,
       hide : true
@@ -87,7 +104,7 @@ class Main extends React.Component {
     next(file) //boilerplate keeps the uplaod going
   }
   handleYoutube(link){  //if a youtube link is submitted, we send that link to the appropriate backend route
-    var self = this
+    var self = this;
     fetch('http://localhost:3000/youtube',{
       method: 'post',
       headers: {
@@ -251,85 +268,62 @@ class Main extends React.Component {
     })
   }
   render(){
-    var predictions = this.state.predictions
-    var counter = 0
+    var predictions = this.state.predictions;
+    var counter = 0;
+
     return(
-      <div style={{display: 'flex', width: '100%', flexDirection: 'row'}}>
-        <div style = {{flex: 1, width: '100%'}}>
-          {this.state.hide? <div />: <div style = {{flex: 1}}>
-            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}> Submit a video link to search within it</h2>
-            <form onSubmit={this.handleSubmit.bind(this)}>
-              <input ref="youtube" style={styles.input} type="text" placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ" onChange={this.updateYoutubeUrl.bind(this)}>
-              </input>
-              <input type="submit"></input>
-            </form>
-            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}>Or</h2>
-            <h2 style = {{width: "100%", textAlign: 'center', marginTop : '60'}}> Upload a video to search within it</h2>
-            <div style ={{textAlign: 'center', paddingBottom: 20}}>
-              <ReactS3Uploader
-              signingUrl="/s3/sign"
-              signingUrlMethod="GET"
-              accept="video/*"
-              signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
-              uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
-              contentDisposition="auto"
-              onFinish = {this.onFinish.bind(this)}
-              // onFinish = {this.onUploadFinish.bind(this)}
-              preprocess = {this.onStart.bind(this)}
-              scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
-              server="http://localhost:3000" />
-            </div>
-          </div>}
-          <div style ={{paddingBottom: 5}}></div>
-          <div>{this.state.ready ?
-            <div>
-              <label style={{display: 'flex', justifyContent: 'center', marginTop: "30"}}>
-              Search Term Within Your Video  <input type="text" name="name" onKeyPress={this.handleKeyPress.bind(this)} onChange={this.updateQuery.bind(this)} value={this.state.query} />
-              </label>
-            </div>
-            : <div style={{justifyContent: 'center', alignItems: 'center'}}>
-                {this.state.loading ?
-                  <div>
-                    <div style={{justifyContent: 'center', alignItems: 'center', marginTop: '60'}}>Analyzing your video</div>
-                    <img style={{justifyContent: 'center', alignItems: 'center'}} src="https://s-media-cache-ak0.pinimg.com/originals/90/80/60/9080607321ab98fa3e70dd24b2513a20--mark-bennett-ui-animation.jpg" width="240" height="180" alt="Loading gif">
-                    </img>
-                  </div>
-                : <div></div>}
-              </div>
-            }
-          </div>
-          <div style={{textAlign: 'center'}}>
-            <div>{
-              this.state.url ?
-                <video id="uploadedvideo" width="640" height="480" controls>
-                  <source src={this.state.url} type="video/mp4"></source>
-                  Your browser does not support the video tag.
-                </video>
-              : <div></div>
-            }</div>
-            <div>{
-              this.state.ready ?
-              <div>
-              <p></p>
-              <p></p>
-              <button onClick={()=>{location.reload()}}>Search within a new video!</button>
-              </div>
-              : <div></div>
-            }</div>
-          </div>
+      <div style={{display: 'flex', justifyContent: 'center', flexDirection: 'column', textAlign: 'center'}}>
+        {!this.state.ready && !this.state.loading ? <div>
+        <h1>SearchWithinVideo</h1>
+        <p>Submit a youtube url or upload a video to get started</p>
+        <form onSubmit={this.handleSubmit.bind(this)}>
+            <input ref="youtube" style={styles.input1} type="text" placeholder="Enter youtube link here" onChange={this.updateYoutubeUrl.bind(this)}/>
+            <input type="submit"/>
+        </form>
+        <ReactS3Uploader
+          signingUrl="/s3/sign"
+          signingUrlMethod="GET"
+          accept="video/*"
+          signingUrlWithCredentials={ true }      // in case when need to pass authentication credentials via CORS
+          uploadRequestHeaders={{ 'x-amz-acl': 'public-read' }}  // this is the default
+          contentDisposition="auto"
+          onFinish = {this.onFinish.bind(this)}
+          preprocess = {this.onStart.bind(this)}
+          scrubFilename={(filename) => filename.replace(/[^\w\d_\-\.]+/ig, '')}
+          server="http://localhost:3000" />
         </div>
-        {this.state.ready?
-          <div style={{flex:1, width: '100%', marginTop: '100', marginLeft: '20'}}>
-          <h2>Possible search terms:</h2>
-          <h5>Press Enter for multiple occurences of one tag</h5>
+        :
+        <div style={{marginTop: 30}}>
+          <form onSubmit={this.resetPage.bind(this)}>
+            <input type="submit" value="New Video Search"/>
+          </form>
+        </div>
+      }
+        {this.state.loading ?
+          <div style={{marginTop: 30}}>
+            <img src="https://s-media-cache-ak0.pinimg.com/originals/90/80/60/9080607321ab98fa3e70dd24b2513a20--mark-bennett-ui-animation.jpg" width="640" height="360" alt="Loading gif"/>
+          </div>
+          :
+          <div></div>
+        }
+        {
+          this.state.ready ?
+          <div style = {{marginTop: 30, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center'}}>
+          <video id="uploadedvideo" width="640" height="360" controls>
+            <source src={this.state.url} type="video/mp4"/>
+            Your browser does not support the video tag.
+          </video>
+          <p style={{marginTop: 15}}>Now enter a word from the list below. Hit enter to search for additional occurrences.</p>
+          <input type="text" style={styles.input2} name="name" onKeyPress={this.handleKeyPress.bind(this)} onChange={this.updateQuery.bind(this)} value={this.state.query} placeholder='Enter Search Term Here' />
+          <h2>What we found</h2>
           <ul>
             {this.state.list.map(function(item) {
               counter++
-              return <li key={counter}>{item} ({predictions[item].length})</li>
+              return <li style={{listStyleType: 'none'}} key={counter}>{item} ({predictions[item].length})</li>
             })}
           </ul>
-          </div> :
-          <div></div>
+          </div>
+          : <div></div>
         }
       </div>
     )
@@ -337,8 +331,16 @@ class Main extends React.Component {
 }
 
 let styles = {
-  input: {
-    width: '420',
+  input1: {
+    width: 320,
+    marginBottom: 15,
+    marginRight: 5,
+    paddingLeft: 5
+  },
+  input2: {
+    width: 640,
+    marginBottom: 15,
+    paddingLeft: 5
   }
 };
 

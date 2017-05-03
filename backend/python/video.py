@@ -46,7 +46,7 @@ def parseVideo(videoFile):
     arr = []
     vidcap = cv2.VideoCapture(videoFile) #set videoFile to 0 to capture from webcam
     success,image = vidcap.read()
-    seconds = 2 #check every so many seconds
+    seconds = 1 #check every so many seconds
     counter = 1
     time = 0
     fps = int(round(vidcap.get(cv2.CAP_PROP_FPS))) # Gets the frames per second
@@ -71,7 +71,7 @@ def parseVideo(videoFile):
                 #write image locally if oldimage and newimage differ in pixel composition enough
                 print('~~~~~~~~sssssssssssssim~~~~~~~~~~:', s)
                 print('~~~~~~~~mmmmmmmmmmmmmse~~~~~~~~~~:', m)
-                if s<=.92:
+                if s<=.95:
                     filenameuploaded = 'pics'+str(counter)+'.jpg'
                     cv2.imwrite(filenameuploaded, image) #writes an image of type 'numpy.ndarray' from nongreyscale image
                     print ('statistically relevant difference, will save image')

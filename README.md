@@ -1,8 +1,4 @@
 # videoSearch
-Extract insights from video (using Inception v3 model from Tensor Flow)
-
-A primitive version of a work in progress
-
 To use, must use python 3 (may need to source the correct pip modules for python):
 - Clone repo
 - in the terminal, cd into the repo and:
@@ -16,6 +12,6 @@ To use, must use python 3 (may need to source the correct pip modules for python
     - npm run webpack
     - npm start
 - in a separate terminal cd into backend/python and type the following commands:
-    - pip install 
+    - pip install
     - python testServery.py
 - open localhost:3000 and use the whatever functionality you like

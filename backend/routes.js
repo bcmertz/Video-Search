@@ -1,4 +1,3 @@
-
 var express = require('express');
 var router = express.Router();
 var path = require('path');
@@ -135,6 +134,7 @@ router.post('/predict', function(req, res){  //the python server sends the image
       function(response) {
         console.log('Number of outputs', response.outputs.length)
         response.outputs.forEach(function(item){
+          console.log('Classification', item.data.concepts[0].name, 'Time', allKeys[counter].time);
           predictions.push({classification : item.data.concepts[0].name, time: allKeys[counter].time})
           counter++
         })
@@ -202,7 +202,7 @@ router.post('/uploadurl', function(req, res){   //hit after frontend aws upload 
   var source = 'f'+req.body.url  //so python knows its file not a stream
   console.log('source',source)
   var options = {   //options to post to python
-    host: '34.210.45.244',
+    // host: '34.210.45.244',
     port: 8080,
     method: 'POST',
     headers: {

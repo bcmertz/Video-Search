@@ -1,6 +1,6 @@
 # videoSearch
 
-To use, must use python 3 (may need to source the correct pip modules for python):
+To run locally, must use python 3 (may need to source the correct pip modules for python):
 - Clone repo
 - in the terminal, cd into the repo and:
     - Create env.sh with the following text:

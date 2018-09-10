@@ -13,19 +13,25 @@ var Clarifai = require('clarifai');
 var youtubedl = require('youtube-dl')
 var fs = require('fs')
 
+mongoose.connect(process.env.MONGODB_URI, { useMongoClient: true});
+
+//process.on('unhandledRejection', (reason, p) => {
+  //console.log('Unhandled Rejection at: Promise', p, 'reason:', reason);
+  // application specific logging, throwing an error, or other logic here
+//});
+
 var s3 = new aws.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
 });
 
-var clari = new Clarifai.App(
-  process.env.id,
-  process.env.password
-);
-clari.getToken();
+const clari = new Clarifai.App({
+    apiKey: process.env.id
+});
 
 router.get('/', function(req,res){
-  res.sendFile(path.join(__dirname, '../index.html'))  //for the mainpage send index.html which has out bundled app as a script inside
+    console.log("get /");
+    res.sendFile(path.join(__dirname, '../index.html'))  //for the mainpage send index.html which has out bundled app as a script inside
 });  //get main page
 
 var ready = false  //global variable dictating if the results are ready or not yet, doens't scale to multiple users
@@ -202,7 +208,7 @@ router.post('/uploadurl', function(req, res){   //hit after frontend aws upload 
   var source = 'f'+req.body.url  //so python knows its file not a stream
   console.log('source',source)
   var options = {   //options to post to python
-    // host: '34.210.45.244',
+    host: '127.0.0.1',
     port: 8080,
     method: 'POST',
     headers: {
@@ -236,7 +242,7 @@ router.post('/youtube', function(req, res){   //route for youtube link submissio
     var source = 'f'+url;
     console.log('source',source);
     var options = {
-      host: '34.210.45.244',
+      host: '127.0.0.1',
       port: 8080,
       method: 'POST',
       headers: {
